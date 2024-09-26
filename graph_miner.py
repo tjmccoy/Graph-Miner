@@ -1,3 +1,6 @@
+import random
+
+
 def extract_edges(file_path):
     edges = []
 
@@ -40,5 +43,121 @@ def create_adjacency_list(edges):
     return adjacency_list
 
 
-graph = create_adjacency_list(extract_edges('hw3_cost239.txt'))
-print(graph)
+def is_connected(subgraph, target_nodes):
+    # BFS to check connectivity of M nodes
+    target_nodes = set(target_nodes)  # Ensure target_nodes is a set
+
+    if not target_nodes:
+        return True  # an empty set is connected -> i.e., vacuously true
+
+    start_node = target_nodes.pop()  # Pick an arbitrary node from target_nodes
+    visited = set()
+    stack = [start_node]
+
+    while stack:
+        node = stack.pop()
+        if node not in visited:
+            visited.add(node)
+            for neighbor in subgraph.get(node, []):
+                if neighbor not in visited:
+                    stack.append(neighbor)
+
+    return target_nodes.issubset(visited)
+
+
+def fitness(individual, edges, target_nodes):
+    # Create subgraph from individual
+    subgraph = {}
+    for i, included in enumerate(individual):
+        if included:
+            node1, node2 = edges[i]
+            if node1 not in subgraph:
+                subgraph[node1] = []
+            if node2 not in subgraph:
+                subgraph[node2] = []
+            subgraph[node1].append(node2)
+            subgraph[node2].append(node1)
+
+    # Check if all nodes in target_nodes are connected in the subgraph
+    if not is_connected(subgraph, target_nodes):
+        return 1000  # High penalty for not connecting all nodes in M
+
+    # Fitness is the number of edges included (to minimize)
+    return sum(individual)
+
+
+def create_individual(edge_count):
+    return [random.choice([0, 1]) for _ in range(edge_count)]
+
+
+def selection(population, fitness_scores, n=5):
+    selected = []
+
+    # choose n random individuals from population with their fitness scores
+    for _ in range(n):
+        i = random.randint(0, len(population) - 1)
+        selected.append((population[i], fitness_scores[i]))
+
+    # get the individual with the minimum fitness from the selected individuals
+    best_individual = min(selected, key=lambda x: x[1])
+
+    # extract the individual and return it
+    parent = best_individual[0]
+    return parent
+
+
+def crossover(parent1, parent2):
+    # choose a random point from idx 1 to end of individual string, and crossover genes
+    point = random.randint(1, len(parent1) - 1)
+    child1 = parent1[:point] + parent2[point:]
+    child2 = parent2[:point] + parent1[point:]
+
+    # return the two crossed children
+    return child1, child2
+
+
+def mutate(individual, mutation_rate=0.01):
+    pass
+
+
+def genetic_algorithm(edges, target_nodes, population_size=100, generations=100, mutation_rate=0.01):
+    # initialize edge count to length of edges read from txt file
+    edge_count = len(edges)
+
+    # initialize population
+    population = [create_individual(edge_count) for _ in range(population_size)]
+
+    # evaluate initial population
+    pop_fitness_scores = [fitness(individual, edges, target_nodes) for individual in population]
+
+    # evolution loop
+    for generation in range(generations):
+        new_population = []
+
+        for _ in range(population_size // 2):
+            parent1 = selection(population, pop_fitness_scores)
+            parent2 = selection(population, pop_fitness_scores)
+
+            # crossover
+            child1, child2 = crossover(parent1, parent2)
+
+            # mutate
+            mutate(child1, mutation_rate)
+            mutate(child2, mutation_rate)
+
+            # add to new population
+            new_population.extend([child1, child2])
+
+        # replace old population with new population
+        population = new_population
+
+        # calculate fitness scores for each individual in the new population
+        pop_fitness_scores = [fitness(individual, edges, target_nodes) for individual in population]
+
+        # for testing purposes:
+        best_fitness = min(pop_fitness_scores)
+        print(f"Generation {generation}: Best fitness = {best_fitness}")
+
+    # return best solution
+    best_idx = pop_fitness_scores.index(min(pop_fitness_scores))
+    return population[best_idx]
