@@ -66,7 +66,7 @@ def is_connected(subgraph, target_nodes):
 
 
 def fitness(individual, edges, target_nodes):
-    # Create subgraph from individual
+    # create subgraph from individual
     subgraph = {}
     for i, included in enumerate(individual):
         if included:
@@ -78,11 +78,11 @@ def fitness(individual, edges, target_nodes):
             subgraph[node1].append(node2)
             subgraph[node2].append(node1)
 
-    # Check if all nodes in target_nodes are connected in the subgraph
+    # check if all nodes in target_nodes are connected in the subgraph
     if not is_connected(subgraph, target_nodes):
-        return 1000  # High penalty for not connecting all nodes in M
+        return 1000  # high penalty for not connecting all nodes in target_nodes
 
-    # Fitness is the number of edges included (to minimize)
+    # fitness is the number of edges included (to minimize)
     return sum(individual)
 
 
@@ -117,7 +117,9 @@ def crossover(parent1, parent2):
 
 
 def mutate(individual, mutation_rate=0.01):
-    pass
+    for i in range(len(individual)):
+        if random.random() < mutation_rate:  # randomly generates a number in the interval of [0,1]
+            individual[i] = 1 - individual[i]   # flip bit (1 - 0 = 1, 1 - 1 = 0)
 
 
 def genetic_algorithm(edges, target_nodes, population_size=100, generations=100, mutation_rate=0.01):
@@ -156,8 +158,29 @@ def genetic_algorithm(edges, target_nodes, population_size=100, generations=100,
 
         # for testing purposes:
         best_fitness = min(pop_fitness_scores)
-        print(f"Generation {generation}: Best fitness = {best_fitness}")
+        best_idx = pop_fitness_scores.index(min(pop_fitness_scores))
+        print(f"Generation {generation}: Best fitness = {best_fitness} String: {population[best_idx]}")
+
 
     # return best solution
     best_idx = pop_fitness_scores.index(min(pop_fitness_scores))
     return population[best_idx]
+
+def main():
+    # Run the genetic algorithm
+    edges = extract_edges('hw3_cost239.txt')
+    graph = create_adjacency_list(edges)
+    print(graph)
+
+    target_nodes = {1, 3, 5, 7, 9, 11, 13, 15, 17}
+    best_solution = genetic_algorithm(edges, target_nodes)
+
+    # Print the best subgraph solution
+    print("Best subgraph found:")
+    for i, included in enumerate(best_solution):
+        if included:
+            print(edges[i])
+
+
+if __name__ == "__main__":
+    main()
