@@ -181,6 +181,14 @@ def main():
         if included:
             print(edges[i])
 
+# Print the best subgraph solution
+    best_edges = []
+    for i, included in enumerate(best_solution):
+        if included:
+            best_edges.append(edges[i])  # Collect the edges of the best solution
+
+    return best_edges  # Return the best edges for visualization
+
 
 if __name__ == "__main__":
     main()
