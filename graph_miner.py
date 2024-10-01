@@ -2,6 +2,12 @@ import random
 
 
 def extract_edges(file_path):
+    """
+    Extracts edges from a graph file
+    :param file_path: The path to the file containing the graph's edges. Each line of the file represents an edge,
+                      with two space-separated integers representing the nodes that the edge connects
+    :return: A list of tuples where each tuple represents an edge in the form (node1, node2)
+    """
     edges = []
 
     # open the file containing the graph's edges
@@ -25,6 +31,12 @@ def extract_edges(file_path):
 
 
 def create_adjacency_list(edges):
+    """
+    Creates an adjacency list of a graph from a list of edges
+    :param edges: A list of tuples representing edges in the form (node1, node2)
+    :return: A dictionary representing the adjacency list of the graph, where each key is a node and the value
+             is a list of nodes that are neighboring it
+    """
     adjacency_list = {}
 
     for node1, node2 in edges:  # iterate through each edge
@@ -44,13 +56,19 @@ def create_adjacency_list(edges):
 
 
 def is_connected(subgraph, target_nodes):
-    # BFS to check connectivity of M nodes
+    """
+    Determines if all target nodes are connected within a given subgraph
+    :param subgraph: A dict representing the adjacency list of the subgraph
+    :param target_nodes: A set of nodes to be used for checking connectivity within the subgraph
+    :return: True if all target nodes are connected or False otherwise
+    """
+    # BFS to check connectivity of target_nodes within subgraph
     target_nodes = set(target_nodes)  # Ensure target_nodes is a set
 
     if not target_nodes:
         return True  # an empty set is connected -> i.e., vacuously true
 
-    start_node = target_nodes.pop()  # Pick an arbitrary node from target_nodes
+    start_node = target_nodes.pop()  # Pick a node from target_nodes
     visited = set()
     stack = [start_node]
 
@@ -66,31 +84,62 @@ def is_connected(subgraph, target_nodes):
 
 
 def fitness(individual, edges, target_nodes):
-    # create subgraph from individual
+    """
+    Calculates the fitness of an individual based on connectivity and the number of edges used
+    :param individual: A bit string representing the inclusion or exclusion of edges in the subgraph
+    :param edges: A list of tuples representing edges in the form (node1, node2)
+    :param target_nodes: The set of nodes that must be connected in the subgraph
+    :return: The fitness score of the individual, which is the sum of included edges. Higher penalties (1000) are given
+             if target nodes are not connected
+    """
+    # Initialize an empty dictionary to represent the subgraph that will be created
+    # based on the edges selected by the individual's genome.
     subgraph = {}
+
+    # loop over each bit in every individual, where 1 = included in subgraph and 0 = not included in subgraph
     for i, included in enumerate(individual):
-        if included:
-            node1, node2 = edges[i]
-            if node1 not in subgraph:
+        if included:    # if the edge is included,
+            node1, node2 = edges[i]  # get the two nodes connected by this edge
+
+            if node1 not in subgraph:   # if node1 is not already in the subgraph, initialize it with an empty list
                 subgraph[node1] = []
-            if node2 not in subgraph:
+            if node2 not in subgraph:   # if node2 is not already in the subgraph, initialize it with an empty adj. list
                 subgraph[node2] = []
-            subgraph[node1].append(node2)
-            subgraph[node2].append(node1)
+
+            subgraph[node1].append(node2)   # add node2 to the adjacency list of node1
+            subgraph[node2].append(node1)   # add node2 to the adjacency list of node2
+            # we add both since this is an undirected graph
 
     # check if all nodes in target_nodes are connected in the subgraph
     if not is_connected(subgraph, target_nodes):
         return 1000  # high penalty for not connecting all nodes in target_nodes
 
-    # fitness is the number of edges included (to minimize)
+    # fitness is the number of edges included (to minimize), if all target_nodes are connected within the subgraph
     return sum(individual)
 
 
 def create_individual(edge_count):
+    """
+    Creates a random individual for the population
+    :param edge_count: The total number of edges in the graph
+    :return: A list of binary values, where 1 means an edge is included in the individual's subgraph,
+             and 0 means it is excluded
+    """
+    # randomly populates a bit string of length edge_count, representing included and excluded edges
     return [random.choice([0, 1]) for _ in range(edge_count)]
 
 
 def selection(population, fitness_scores, n=5):
+    """
+    This function chooses n random individuals from the population and returns the best fit one.
+    This is used to select parents to carry on their genes within the genetic algorithm.
+    We used Tournament Selection in order to implement this function, you can read more about it
+    here: https://en.wikipedia.org/wiki/Tournament_selection
+    :param population: a list of the individuals that exist within the population
+    :param fitness_scores: a list of the fitness scores of the individuals within the population
+    :param n: the number of individuals to randomly choose from the population
+    :return: parent, the best individual from the n randomly selected
+    """
     selected = []
 
     # choose n random individuals from population with their fitness scores
@@ -107,7 +156,13 @@ def selection(population, fitness_scores, n=5):
 
 
 def crossover(parent1, parent2):
-    # choose a random point from idx 1 to end of individual string, and crossover genes
+    """
+    Performs crossover between two parents to produce two children at a randomly generated slice index
+    :param parent1: The first parent individual (bit list)
+    :param parent2: The second parent individual (bit list)
+    :return: Two children (bit lists) created by crossing over genes from the parents.
+    """
+    # choose a random point in the individual string and crossover genes
     point = random.randint(1, len(parent1) - 1)
     child1 = parent1[:point] + parent2[point:]
     child2 = parent2[:point] + parent1[point:]
@@ -117,12 +172,30 @@ def crossover(parent1, parent2):
 
 
 def mutate(individual, mutation_rate=0.01):
+    """
+    Iterates over the individual (bit list) and with each bit, there is a 1% chance of the bit flipping.
+    :param individual: a bit list representation of edges included/excluded
+    :param mutation_rate: the probability of a mutation occurring
+    :return:
+    """
+    # iterate through the given individual and let a mutation occur, if the 1% chance occurs
     for i in range(len(individual)):
         if random.random() < mutation_rate:  # randomly generates a number in the interval of [0,1]
             individual[i] = 1 - individual[i]   # flip bit (1 - 0 = 1, 1 - 1 = 0)
 
 
 def genetic_algorithm(edges, target_nodes, population_size=100, generations=100, mutation_rate=0.01):
+    """
+    Runs a genetic algorithm to find a subgraph that connects all target nodes with the fewest edges
+
+    :param edges: A list of tuples representing the edges of the graph, where each tuple is in the form (node1, node2)
+    :param target_nodes: A list or set of nodes that must be connected in the final subgraph
+    :param population_size: The number of individuals in the population (default = 100)
+    :param generations: The number of generations the algorithm will run (default = 100)
+    :param mutation_rate: The probability of mutating each bit in an individual's genome (default is 0.01)
+    :return: The individual (a bit list) representing the best subgraph found by the genetic algorithm. A '1' in the
+                list means the corresponding edge is included in the subgraph, and '0' means it is excluded
+    """
     # initialize edge count to length of edges read from txt file
     edge_count = len(edges)
 
@@ -158,16 +231,15 @@ def genetic_algorithm(edges, target_nodes, population_size=100, generations=100,
 
         # for testing purposes:
         best_fitness = min(pop_fitness_scores)
-        best_idx = pop_fitness_scores.index(min(pop_fitness_scores))
-        print(f"Generation {generation}: Best fitness = {best_fitness} String: {population[best_idx]}")
-
+        print(f"Generation {generation}: Best fitness = {best_fitness}")
 
     # return best solution
     best_idx = pop_fitness_scores.index(min(pop_fitness_scores))
     return population[best_idx]
 
+
 def main():
-    # Run the genetic algorithm
+    # run the genetic algorithm
     edges = extract_edges('hw3_cost239.txt')
     graph = create_adjacency_list(edges)
     print(graph)
@@ -175,19 +247,19 @@ def main():
     target_nodes = {1, 3, 5, 7, 9, 11, 13, 15, 17}
     best_solution = genetic_algorithm(edges, target_nodes)
 
-    # Print the best subgraph solution
+    # print the best subgraph solution
     print("Best subgraph found:")
     for i, included in enumerate(best_solution):
         if included:
             print(edges[i])
 
-# Print the best subgraph solution
+    # print the best subgraph solution
     best_edges = []
     for i, included in enumerate(best_solution):
         if included:
-            best_edges.append(edges[i])  # Collect the edges of the best solution
+            best_edges.append(edges[i])  # collect the edges of the best solution
 
-    return best_edges  # Return the best edges for visualization
+    return best_edges  # return the best edges for visualization
 
 
 if __name__ == "__main__":
